@@ -1,5 +1,5 @@
 { "name": "pixmap2unicode",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Convert black-and-white bitmap pixels to Unicode Block Elements characters.",
   "keywords": [
     "ascii art",

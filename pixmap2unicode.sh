@@ -2,26 +2,27 @@
 # -*- coding: utf-8, tab-width: 2 -*-
 
 function pm2u_init () {
-  local -A CHARS=(
+  local -A CFG=(
     # e = empty, t = top, b = bottom, f = full
-    [b]='▄'
-    [be]='▖'
-    [bt]='▞'
-    [e]=' '
-    [eb]='▗'
-    [et]='▝'
-    [f]='█'
-    [fb]='▙'
-    [ft]='▛'
-    [t]='▀'
-    [tb]='▚'
-    [te]='▘'
-    [tf]='▜'
+    [c:b]='▄'
+    [c:be]='▖'
+    [c:bt]='▞'
+    [c:e]=' '
+    [c:eb]='▗'
+    [c:et]='▝'
+    [c:f]='█'
+    [c:fb]='▙'
+    [c:ft]='▛'
+    [c:t]='▀'
+    [c:tb]='▚'
+    [c:te]='▘'
+    [c:tf]='▜'
+
+    [style]='halves'
+    [rownumfmt]='% 1u\t'
+    [siderails]=':'
     )
 
-  local -A CFG=(
-    [style]='halves'
-    )
   local KEY= VAL=
   while [ "$#" -ge 1 ]; do
     VAL="$1"; shift
@@ -30,6 +31,8 @@ function pm2u_init () {
       case "$VAL" in
         - ) KEY=file;;
         -- ) KEY="$VAL"; continue;;
+        -E ) CFG[c:e]='  '; continue;;
+        --bare ) CFG[rownumfmt]=; CFG[siderails]=; continue;;
         --*=* ) pm2u_setopt "${VAL#--}" || return $?; continue;;
         -* ) echo "E: Unsupported option: '$VAL'" >&2; return 4;;
         * ) KEY=file;;
@@ -67,26 +70,47 @@ function pm2u_convert_one_file () {
     echo "E: Unexpected characters in pixmap output: '$UNEXP'" >&2)
 
   local ROW_NUM=0
-  local ROW_BUF=()
-
+  local ROW_BUF= PX=
   while [ "${#PM[@]}" -ge 1 ]; do
     (( ROW_NUM += 1 ))
-    ROW_BUF=( ${PM[0]} ); PM=( "${PM[@]:1}" )
+    ROW_BUF="${PM[0]}"; PM=( "${PM[@]:1}" )
     case "${CFG[style]}" in
       halves ) pm2u_merge_next_row || return $?;;
     esac
-    echo "$ROW_NUM"$'\t'":${ROW_BUF[*]}:"
+    [ -z "${CFG[rownumfmt]}" ] || printf "${CFG[rownumfmt]}" "$ROW_NUM"
+    echo -n "${CFG[siderails]}"
+    ROW_BUF=" ${ROW_BUF// /  } "
+    pm2u_render_"${CFG[style]}" || return $?
+    for PX in $ROW_BUF; do
+      echo -n "${CFG[c:$PX]:-<? $PX ?>}"
+    done
+    echo "${CFG[siderails]}"
   done
 }
 
 
 function pm2u_merge_next_row () {
   local NX_ROW=( ${PM[0]} ); PM=( "${PM[@]:1}" )
-  local IDX=0 DUMMY=
-  for DUMMY in ${ROW_BUF[@]}; do
-    ROW_BUF[$IDX]+="${NX_ROW[$IDX]:-0}"
+  local ORIG= MERGED= IDX=0
+  for ORIG in $ROW_BUF; do
+    MERGED+="$ORIG${NX_ROW[$IDX]:-0} "
     (( IDX += 1 ))
   done
+  ROW_BUF="${MERGED% }"
+}
+
+
+function pm2u_render_halves () {
+  ROW_BUF="${ROW_BUF// 00 / e }"
+  ROW_BUF="${ROW_BUF// 01 / b }"
+  ROW_BUF="${ROW_BUF// 10 / t }"
+  ROW_BUF="${ROW_BUF// 11 / f }"
+}
+
+
+function pm2u_render_big () {
+  ROW_BUF="${ROW_BUF// 0 / e e }"
+  ROW_BUF="${ROW_BUF// 1 / f f }"
 }
 
 
